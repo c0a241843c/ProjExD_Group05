@@ -22,6 +22,7 @@ class Ball:
         self.speed_x = 0
         self.speed_y = 0
         self.in_motion = False
+        self.curve=0 # カーブの初期値
 
     def reset_position(self, player):
         self.rect.x = player.rect.centerx - 10
@@ -31,7 +32,8 @@ class Ball:
         self.speed_y = 0
 
     def update(self):
-        self.rect.x += self.speed_x
+        curve_strength=1.5
+        self.rect.x += self.speed_x+ self.curve * curve_strength
         self.rect.y += self.speed_y
 
 class Goal:
@@ -103,6 +105,12 @@ def main():
                         ball.speed_x = shoot_direction * 3
                         ball.in_motion = True
                         keeper.last_move_time = current_time
+                elif event.key == pygame.K_z:
+                    ball.curve = max(ball.curve -1,-5) # 左カーブ
+                elif event.key == pygame.K_x:
+                    ball.curve =min(ball.curve+1,5)    # 右カーブ
+                elif event.key == pygame.K_c:
+                    ball.curve = 0   # カーブなし（リセット）
 
         if ball.in_motion:
             ball.update()
@@ -146,6 +154,41 @@ def main():
             0: "Direction: CENTER",
             1: "Direction: RIGHT"
         }[shoot_direction]
+
+        curve_text = {
+            -5: "Curve: LEFT MAX",
+            -4: "Curve: LEFT 4",
+            -3: "Curve: LEFT 3",
+            -2: "Curve: LEFT 2",
+            -1: "Curve: LEFT 1",
+            0: "Curve: NONE",
+            1: "Curve: RIGHT 1",
+            2: "Curve: RIGHT 2",
+            3: "Curve: RIGHT 3",
+            4: "Curve: RIGHT 4",
+            5: "Curve: RIGHT MAX",
+        }.get(ball.curve,"Curve:UNKNOWN")
+
+        # カーブゲージ表示（バー）
+        gauge_width = 200
+        gauge_height = 20
+        gauge_x = 10
+        gauge_y = HEIGHT - 130
+
+        # ゲージの背景（枠）
+        pygame.draw.rect(screen, WHITE, (gauge_x, gauge_y, gauge_width, gauge_height), 2)
+
+        # ゲージ中央線（カーブ0の位置）
+        pygame.draw.line(screen, WHITE, (gauge_x + gauge_width // 2, gauge_y),
+                        (gauge_x + gauge_width // 2, gauge_y + gauge_height), 1)
+
+        # 実際のゲージバー
+        bar_center = gauge_x + gauge_width // 2
+        bar_length = (ball.curve / 5) * (gauge_width // 2)
+        pygame.draw.rect(screen, RED, (bar_center, gauge_y, bar_length, gauge_height))
+
+
+        draw_text(screen, curve_text, font, WHITE, 10, HEIGHT - 100)
 
         draw_text(screen, direction_text, font, WHITE, 10, HEIGHT - 50)
 
