@@ -54,20 +54,20 @@ class Keeper:
         self.rect.centerx = self.positions[0]
         self.last_move_time = 0
         self.move_interval = 300
-        self.kippaa_zyoukyou = "genzai"  # "genzai", "taoshi", "kieta"
+        self.kippaa_jyoukyou = "genzai"  # "genzai", "taoshi", "kieta"
         self.kippaa_haisoku_jikan = 0
 
     def update(self, current_time):
-        if self.kippaa_zyoukyou == "genzai" and current_time - self.last_move_time > self.move_interval:
+        if self.kippaa_jyoukyou == "genzai" and current_time - self.last_move_time > self.move_interval:
             self.rect.centerx = random.choice(self.positions)
             self.last_move_time = current_time
 
     def reset(self):
         self.rect.centerx = self.positions[0]
-        self.kippaa_zyoukyou = "genzai"
+        self.kippaa_jyoukyou = "genzai"
 
     def destroy(self, current_time):
-        self.kippaa_zyoukyou = "kieta"
+        self.kippaa_jyoukyou = "kieta"
         self.kippaa_haisoku_jikan = current_time
 
 def draw_text(surface, text, font, color, x, y):
@@ -91,6 +91,8 @@ def main():
     goal_scored = False
     no_goal = False
     message_timer = 0
+    score = 0 
+    q_pressed = False
 
     running = True
     while running:
@@ -107,14 +109,22 @@ def main():
                     shoot_direction = 1
                 elif event.key == pygame.K_UP:
                     shoot_direction = 0
+                elif event.key == pygame.K_q:
+                    if not ball.in_motion and score >= 1:
+                        q_pressed = True
                 elif event.key == pygame.K_SPACE:
                     if not ball.in_motion and not goal_scored and not no_goal:
                         ball.speed_y = -10
                         ball.speed_x = shoot_direction * 3
                         ball.in_motion = True
                         keeper.last_move_time = current_time
-                        # 20%の確率で貫通弾にする
-                        ball.kantuu_dan = random.random() < 0.2
+                        if q_pressed and score >= 1:
+                            ball.kantuu_dan = True
+                            score -= 1
+                        else:
+                            ball.kantuu_dan = False
+                        q_pressed = False
+    
 
         if ball.in_motion:
             ball.update()
@@ -122,6 +132,7 @@ def main():
             # ゴール判定を先に
             if ball.rect.colliderect(goal.rect):
                 goal_scored = True
+                score += 1  # ← ゴール時にスコア加算
                 ball.in_motion = False
                 message_timer = current_time
 
@@ -140,7 +151,7 @@ def main():
 
             keeper.update(current_time)
         else:
-            if keeper.kippaa_zyoukyou == "genzai":
+            if keeper.kippaa_jyoukyou == "genzai":
                 keeper.reset()
 
         # メッセージ表示後のリセット
@@ -149,7 +160,7 @@ def main():
                 goal_scored = False
                 no_goal = False
                 ball.reset_position(player)
-                if keeper.kippaa_zyoukyou == "genzai":
+                if keeper.kippaa_jyoukyou == "genzai":
                     keeper.reset()
 
         # 描画処理
@@ -158,9 +169,9 @@ def main():
         pygame.draw.rect(screen, WHITE, player.rect)
 
         # キーパーの描画
-        if keeper.kippaa_zyoukyou == "genzai":
+        if keeper.kippaa_jyoukyou == "genzai":
             pygame.draw.rect(screen, BLUE, keeper.rect)
-        elif keeper.kippaa_zyoukyou == "taoshi":
+        elif keeper.kippaa_jyoukyou == "taoshi":
             pygame.draw.rect(screen, (100, 100, 100), keeper.rect)
         # "kieta" のときは描画しない
 
@@ -176,13 +187,16 @@ def main():
         }[shoot_direction]
         draw_text(screen, direction_text, font, WHITE, 10, HEIGHT - 50)
 
+        # スコア表示
+        draw_text(screen, f"Score: {score}", font, WHITE, 10, 10)
+
         # メッセージ
         if goal_scored:
             draw_text(screen, "GOAL!", font, WHITE, WIDTH // 2 - 60, HEIGHT // 2)
         elif no_goal:
             draw_text(screen, "NO GOAL", font, WHITE, WIDTH // 2 - 80, HEIGHT // 2)
-        elif keeper.kippaa_zyoukyou == "kieta":
-            draw_text(screen, "KEEPER KESARETA!", font, YELLOW, WIDTH // 2 - 150, HEIGHT // 2)
+        elif keeper.kippaa_jyoukyou == "kieta":
+            draw_text(screen, "KEEPER HAKAI!", font, YELLOW, WIDTH // 2 - 150, HEIGHT // 2)
 
         pygame.display.flip()
         clock.tick(60)
