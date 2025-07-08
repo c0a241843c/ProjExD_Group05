@@ -43,22 +43,22 @@ class Keeper:
         self.width, self.height = 50, 20
         self.rect = pygame.Rect(0, 0, self.width, self.height)
         self.positions = [
-            WIDTH // 2 - self.width // 2,
-            goal.rect.left,
-            goal.rect.right - self.width
+            goal.rect.centerx,
+            goal.rect.left + self.width // 2,
+            goal.rect.right - self.width // 2
         ]
         self.rect.y = goal.rect.bottom
         self.rect.centerx = self.positions[0]
-        #ボール停止時間、シュートごとの移動制御
-        self.ball_stopped_time = None
-        self.has_moved_this_shot = False
+        self.ball_stopped_time = None  # ボール停止時間
+        self.has_moved_this_shot = False  # 一度だけ移動したか
 
-    def update(self, current_time):
-        if current_time - self.last_move_time > self.move_interval:
-            self.rect.centerx = random.choice(self.positions)
-            self.last_move_time = current_time
+    def move_once_random(self):
+        """シュート開始時に1回だけランダムに移動"""
+        self.rect.centerx = random.choice(self.positions)
+        self.has_moved_this_shot = True
 
     def reset(self):
+        """中央に戻す"""
         self.rect.centerx = self.positions[0]
 
 def draw_text(surface, text, font, color, x, y):
@@ -104,14 +104,12 @@ def main():
                         ball.speed_x = shoot_direction * 3
                         ball.in_motion = True
                         keeper.has_moved_this_shot = False
-                        #停止タイマーリセット
                         keeper.ball_stopped_time = None
-
 
         if ball.in_motion:
             ball.update()
 
-            #移動していなければ1回だけランダム移動
+            # シュート中、1回だけキーパーをランダムに動かす
             if not keeper.has_moved_this_shot:
                 keeper.move_once_random()
 
@@ -119,36 +117,35 @@ def main():
                 goal_scored = True
                 ball.in_motion = False
                 message_timer = current_time
-                keeper.ball_stopped_time = current_time  #停止時間を記録
+                keeper.ball_stopped_time = current_time
 
             elif ball.rect.colliderect(keeper.rect):
                 no_goal = True
                 ball.in_motion = False
                 message_timer = current_time
-                keeper.ball_stopped_time = current_time  #停止時間を記録
+                keeper.ball_stopped_time = current_time
 
             elif ball.rect.top <= 0:
                 ball.reset_position(player)
-                keeper.ball_stopped_time = current_time  #停止時間を記録
+                keeper.ball_stopped_time = current_time
 
-            # キーパーの瞬間移動処理
-            keeper.update(current_time)
         else:
-            #ボールが止まっている間は5秒待つ
+            # ボールが止まっている間の処理
             if keeper.ball_stopped_time:
-                if current_time - keeper.ball_stopped_time >= 5000:
-                    keeper.reset()  #5秒経過したら中央へ
-                #5秒未満はそのままの位置に止まる
+                # 5秒経ったら中央に戻す
+                if current_time - keeper.ball_stopped_time >= 3000:
+                    keeper.reset()
+                # 5秒以内はその場に止まる
             else:
                 keeper.reset()
 
         # メッセージ表示後のリセット
         if goal_scored or no_goal:
-            if current_time - message_timer > 2000:
+            if current_time - message_timer > 1000:
                 goal_scored = False
                 no_goal = False
-                ball.x = player.centerx - 10
-                ball.y = player.top - 20
+                ball.reset_position(player)
+                # keeperは1秒経過まではそのまま
 
         # 描画処理
         screen.fill(GREEN)
@@ -163,7 +160,6 @@ def main():
             0: "Direction: CENTER",
             1: "Direction: RIGHT"
         }[shoot_direction]
-
         draw_text(screen, direction_text, font, WHITE, 10, HEIGHT - 50)
 
         if goal_scored:
