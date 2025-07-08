@@ -18,12 +18,12 @@ class Player:
 
 class Ball:
     def __init__(self, player):
-        self.rect = pygame.Rect(player.rect.centerx - 10, player.rect.top - 20, 20, 20)
-        self.pos_x = float(self.rect.x)
+        self.rect = pygame.Rect(player.rect.centerx - 10, player.rect.top - 20, 20, 20) 
+        self.pos_x = float(self.rect.x) 
         self.pos_y = float(self.rect.y)
         self.speed_x = 0.0
         self.speed_y = 0.0
-        self.curve = 0
+        self.curve = 0 # カーブの強さ（-3から3まで）
         self.in_motion = False
         self.curve_accel = 0.0  # 横方向加速度
 
@@ -35,26 +35,20 @@ class Ball:
         self.in_motion = False
         self.speed_x = 0.0
         self.speed_y = 0.0
-        self.curve_accel = 0.0
-        self.curve = 0
+        self.curve_accel = 0.0 # 横方向加速度のリセット
+        self.curve = 0 # カーブの強さのリセット
 
     def update(self):
-        curve_strength=0.08
-        # カーブの強さに応じて横方向の加速度を決定
-        self.curve_accel = self.curve * curve_strength
+        curve_strength=0.08 # カーブの強さを調整する係数
+        self.curve_accel = self.curve * curve_strength  # カーブによる横方向の加速度
 
-        # 横速度に加速度を加算
-        self.speed_x += self.curve_accel
+        self.speed_x += self.curve_accel # カーブによる横方向の加速度を速度に加算
 
-        # 位置に速度を加算
-        self.pos_x += self.speed_x
-        self.pos_y += self.speed_y
+        self.pos_x += self.speed_x  # 横方向の位置を更新
+        self.pos_y += self.speed_y  # 縦方向の位置を更新
 
-        # rectに位置を反映（整数化）
-        self.rect.x = int(self.pos_x)
-        self.rect.y = int(self.pos_y)
-        # self.rect.x += self.speed_x+ self.curve * curve_strength
-        # self.rect.y += self.speed_y
+        self.rect.x = int(self.pos_x)  #x座標を更新
+        self.rect.y = int(self.pos_y)  #y座標を更新
 
 class Goal:
     def __init__(self):
@@ -125,11 +119,11 @@ def main():
                         ball.speed_x = shoot_direction * 3
                         ball.in_motion = True
                         keeper.last_move_time = current_time
-                elif event.key == pygame.K_z:
+                elif event.key == pygame.K_z: # カーブの強さを調整
                     ball.curve = max(ball.curve -1,-3) # 左カーブ
-                elif event.key == pygame.K_x:
-                    ball.curve =min(ball.curve+1,3)    # 右カーブ
-                elif event.key == pygame.K_c:
+                elif event.key == pygame.K_x: # カーブの強さを調整
+                    ball.curve =min(ball.curve+1,3)# 右カーブ
+                elif event.key == pygame.K_c: # カーブなし
                     ball.curve = 0   # カーブなし（リセット）
 
         if ball.in_motion:
@@ -177,8 +171,9 @@ def main():
             1: "Direction: RIGHT"
         }[shoot_direction]
 
+        # カーブの強さ表示
         curve_text = {
-            -3: "Curve: LEFT 3",
+            -3: "Curve: LEFT 3", 
             -2: "Curve: LEFT 2",
             -1: "Curve: LEFT 1",
             0: "Curve: NONE",
@@ -203,15 +198,14 @@ def main():
         # 実際のゲージバー
         bar_center = gauge_x + gauge_width // 2
         bar_length = (ball.curve / 3) * (gauge_width // 2)
-        # pygame.draw.rect(screen, RED, (bar_center, gauge_y, bar_length, gauge_height))
-        if bar_length > 0:
-            pygame.draw.rect(screen, RED, (bar_center, gauge_y, bar_length, gauge_height))  # 右カーブ：赤
-        elif bar_length < 0:
-            pygame.draw.rect(screen, BLUE, (bar_center + bar_length, gauge_y, -bar_length, gauge_height))  # 左カーブ：青
 
+        # カーブの強さに応じてバーの長さを調整
+        if bar_length > 0: 
+            pygame.draw.rect(screen, RED, (bar_center, gauge_y, bar_length, gauge_height))  # 右カーブ赤
+        elif bar_length < 0: 
+            pygame.draw.rect(screen, BLUE, (bar_center + bar_length, gauge_y, -bar_length, gauge_height))  # 左カーブ青
 
-        draw_text(screen, curve_text, font, WHITE, 10, HEIGHT - 100)
-
+        draw_text(screen, curve_text, font, WHITE, 10, HEIGHT - 100)  
         draw_text(screen, direction_text, font, WHITE, 10, HEIGHT - 50)
 
         if goal_scored:
