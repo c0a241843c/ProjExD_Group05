@@ -3,10 +3,11 @@ import pygame
 import sys
 import random
 
+pygame.init()
+WIDTH = 800
+HEIGHT = 600
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
-pygame.init()
-WIDTH, HEIGHT = 800, 600
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("簡易サッカーゲーム")
 clock = pygame.time.Clock()
