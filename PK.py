@@ -11,6 +11,7 @@ GREEN = (0, 200, 0)
 BLACK = (0, 0, 0)
 RED = (255, 0, 0)
 BLUE = (0, 0, 255)
+YELLOW = (255, 255, 0)
 
 class Player:
     def __init__(self):
@@ -33,6 +34,34 @@ class Ball:
     def update(self):
         self.rect.x += self.speed_x
         self.rect.y += self.speed_y
+
+# --- チャージシュート対応のボールクラス ---
+class ChargedBall(Ball):
+    def __init__(self, player):
+        super().__init__(player)
+        self.charging = False              #  チャージ中かどうか
+        self.charge_start_time = 0         #  チャージ開始時間
+        self.max_charge_time = 1500        #  最大チャージ時間1.5秒
+
+    def start_charge(self, current_time):
+        self.charging = True               #  チャージ開始
+        self.charge_start_time = current_time
+
+    def release_charge(self, current_time, direction):
+        self.charging = False
+        charge_duration = current_time - self.charge_start_time
+        speed_multiplier = 1 + min(charge_duration / self.max_charge_time, 1)  #  最大2倍
+        self.speed_y = -10 * speed_multiplier
+        self.speed_x = direction * 3 * speed_multiplier
+        self.in_motion = True
+
+    def draw_gauge(self, screen):
+        if self.charging:
+            now = pygame.time.get_ticks()
+            charge_ratio = min((now - self.charge_start_time) / self.max_charge_time, 1)
+            gauge_width = int(200 * charge_ratio)
+            pygame.draw.rect(screen, YELLOW, (WIDTH // 2 - 100, HEIGHT - 40, gauge_width, 20))
+            pygame.draw.rect(screen, WHITE, (WIDTH // 2 - 100, HEIGHT - 40, 200, 20), 2)
 
 class Goal:
     def __init__(self):
@@ -73,7 +102,7 @@ def main():
     font = pygame.font.SysFont(None, 48)
 
     player = Player()
-    ball = Ball(player)
+    ball = ChargedBall(player)  # 通常のBallからChargedBallに変更
     goal = Goal()
     keeper = Keeper(goal)
 
@@ -81,6 +110,7 @@ def main():
     goal_scored = False
     no_goal = False
     message_timer = 0
+    score = 0
 
     running = True
     while running:
@@ -103,12 +133,21 @@ def main():
                         ball.speed_x = shoot_direction * 3
                         ball.in_motion = True
                         keeper.last_move_time = current_time
+                elif event.key == pygame.K_s:
+                    if not ball.in_motion and not goal_scored and not no_goal:
+                        ball.start_charge(current_time)  #  チャージ開始
+
+            elif event.type == pygame.KEYUP:
+                if event.key == pygame.K_s and ball.charging:
+                    ball.release_charge(current_time, shoot_direction)  #  チャージシュート発射
+                    keeper.last_move_time = current_time
 
         if ball.in_motion:
             ball.update()
 
             if ball.rect.colliderect(goal.rect):
                 goal_scored = True
+                score += 1
                 ball.in_motion = False
                 message_timer = current_time
 
@@ -120,12 +159,10 @@ def main():
             elif ball.rect.top <= 0:
                 ball.reset_position(player)
 
-            # キーパーの瞬間移動処理
             keeper.update(current_time)
         else:
             keeper.reset()
 
-        # メッセージ表示後のリセット
         if goal_scored or no_goal:
             if current_time - message_timer > 2000:
                 goal_scored = False
@@ -133,8 +170,9 @@ def main():
                 ball.reset_position(player)
                 keeper.reset()
 
-        # 描画処理
+        # --- 描画 ---
         screen.fill(GREEN)
+        ball.draw_gauge(screen)  #  チャージゲージ描画
         pygame.draw.rect(screen, BLACK, goal.rect)
         pygame.draw.rect(screen, WHITE, player.rect)
         pygame.draw.rect(screen, BLUE, keeper.rect)
@@ -146,9 +184,12 @@ def main():
             0: "Direction: CENTER",
             1: "Direction: RIGHT"
         }[shoot_direction]
-
         draw_text(screen, direction_text, font, WHITE, 10, HEIGHT - 50)
 
+        # スコア表示
+        draw_text(screen, f"Score: {score}", font, WHITE, 10, 10)
+
+        # メッセージ表示
         if goal_scored:
             draw_text(screen, "GOAL!", font, WHITE, WIDTH // 2 - 60, HEIGHT // 2)
         elif no_goal:
