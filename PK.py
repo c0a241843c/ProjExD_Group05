@@ -61,7 +61,25 @@ class Keeper:
         """中央に戻す"""
         self.rect.centerx = self.positions[0]
 
-def draw_text(surface, text, font, color, x, y):
+def draw_text(
+    surface: pygame.Surface,
+    text: str,
+    font: pygame.font.Font,
+    color: tuple[int, int, int],
+    x: int,
+    y: int
+) -> None:
+    """
+    指定位置にテキストを描画する
+
+    Args:
+        surface: 描画先のSurface
+        text: 描画する文字列
+        font: 使用するフォント
+        color: 文字色 (R,G,B)
+        x: 描画位置のX座標
+        y: 描画位置のY座標
+    """
     text_surf = font.render(text, True, color)
     surface.blit(text_surf, (x, y))
 
@@ -82,6 +100,7 @@ def main():
     goal_scored = False
     no_goal = False
     message_timer = 0
+    score = 0
 
     running = True
     while running:
@@ -115,6 +134,7 @@ def main():
 
             if ball.rect.colliderect(goal.rect):
                 goal_scored = True
+                score += 1
                 ball.in_motion = False
                 message_timer = current_time
                 keeper.ball_stopped_time = current_time
@@ -160,6 +180,7 @@ def main():
             0: "Direction: CENTER",
             1: "Direction: RIGHT"
         }[shoot_direction]
+        draw_text(screen, f"Score: {score}", font, WHITE, 10, 10)
         draw_text(screen, direction_text, font, WHITE, 10, HEIGHT - 50)
 
         if goal_scored:
