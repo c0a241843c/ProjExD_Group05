@@ -49,8 +49,9 @@ class Keeper:
         ]
         self.rect.y = goal.rect.bottom
         self.rect.centerx = self.positions[0]
-        self.last_move_time = 0
-        self.move_interval = 300  # ms
+        #ボール停止時間、シュートごとの移動制御
+        self.ball_stopped_time = None
+        self.has_moved_this_shot = False
 
     def update(self, current_time):
         if current_time - self.last_move_time > self.move_interval:
@@ -103,35 +104,51 @@ def main():
                         ball.speed_y = -10
                         ball.speed_x = shoot_direction * 3
                         ball.in_motion = True
-                        keeper.last_move_time = current_time
+                        keeper.has_moved_this_shot = False
+                        #停止タイマーリセット
+                        keeper.ball_stopped_time = None
+
 
         if ball.in_motion:
             ball.update()
+
+            #移動していなければ1回だけランダム移動
+            if not keeper.has_moved_this_shot:
+                keeper.move_once_random()
 
             if ball.rect.colliderect(goal.rect):
                 goal_scored = True
                 score += 1  # ← ゴール時にスコア加算
                 ball.in_motion = False
                 message_timer = current_time
+                keeper.ball_stopped_time = current_time  #停止時間を記録
 
             elif ball.rect.colliderect(keeper.rect):
                 no_goal = True
                 ball.in_motion = False
                 message_timer = current_time
+                keeper.ball_stopped_time = current_time  #停止時間を記録
 
             elif ball.rect.top <= 0:
                 ball.reset_position(player)
+                keeper.ball_stopped_time = current_time  #停止時間を記録
 
             keeper.update(current_time)
         else:
-            keeper.reset()
+            #ボールが止まっている間は5秒待つ
+            if keeper.ball_stopped_time:
+                if current_time - keeper.ball_stopped_time >= 5000:
+                    keeper.reset()  #5秒経過したら中央へ
+                #5秒未満はそのままの位置に止まる
+            else:
+                keeper.reset()
 
         if goal_scored or no_goal:
             if current_time - message_timer > 2000:
                 goal_scored = False
                 no_goal = False
-                ball.reset_position(player)
-                keeper.reset()
+                ball.x = player.centerx - 10
+                ball.y = player.top - 20
 
         # 描画処理
         screen.fill(GREEN)
