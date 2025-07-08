@@ -38,27 +38,43 @@ class Goal:
     def __init__(self):
         self.rect = pygame.Rect(WIDTH // 2 - 175, 0, 350, 20)
 
+class KeeperSizeManager:#新しいクラス
+    def __init__(self, base_width=50):
+        self.base_width = base_width
+
+    def get_width(self, score):#スコアが４以上でキーパーのサイズを四倍に
+        return self.base_width * 4 if score >= 4 else self.base_width
+
 class Keeper:
-    def __init__(self, goal):
-        self.width, self.height = 50, 20
+    def __init__(self, goal, size_manager):
+        self.size_manager = size_manager
+        self.height = 20
+        self.width = self.size_manager.get_width(0)
         self.rect = pygame.Rect(0, 0, self.width, self.height)
-        self.positions = [
-            WIDTH // 2 - self.width // 2,
-            goal.rect.left,
-            goal.rect.right - self.width
-        ]
         self.rect.y = goal.rect.bottom
-        self.rect.centerx = self.positions[0]
+        self.rect.centerx = WIDTH // 2
         self.last_move_time = 0
         self.move_interval = 300  # ms
+        self.goal = goal
 
     def update(self, current_time):
         if current_time - self.last_move_time > self.move_interval:
-            self.rect.centerx = random.choice(self.positions)
+            positions = [
+                WIDTH // 2,
+                self.goal.rect.left + self.rect.width // 2,
+                self.goal.rect.right - self.rect.width // 2
+            ]
+            self.rect.centerx = random.choice(positions)
             self.last_move_time = current_time
 
     def reset(self):
-        self.rect.centerx = self.positions[0]
+        self.rect.centerx = WIDTH // 2
+
+    def update_size(self, score):
+        current_center = self.rect.centerx
+        self.width = self.size_manager.get_width(score)
+        self.rect.width = self.width
+        self.rect.x = current_center - self.width // 2
 
 def draw_text(surface, text, font, color, x, y):
     text_surf = font.render(text, True, color)
@@ -75,17 +91,19 @@ def main():
     player = Player()
     ball = Ball(player)
     goal = Goal()
-    keeper = Keeper(goal)
+    size_manager = KeeperSizeManager()
+    keeper = Keeper(goal, size_manager)
 
     shoot_direction = 0
     goal_scored = False
     no_goal = False
     message_timer = 0
-    score = 0  # ← 得点カウント
+    score = 0
 
     running = True
     while running:
         current_time = pygame.time.get_ticks()
+        keeper.update_size(score)  # キーパーのサイズ更新
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -110,7 +128,7 @@ def main():
 
             if ball.rect.colliderect(goal.rect):
                 goal_scored = True
-                score += 1  # ← ゴール時にスコア加算
+                score += 1
                 ball.in_motion = False
                 message_timer = current_time
 
@@ -133,22 +151,19 @@ def main():
                 ball.reset_position(player)
                 keeper.reset()
 
-        # 描画処理
+        # 描画
         screen.fill(GREEN)
         pygame.draw.rect(screen, BLACK, goal.rect)
         pygame.draw.rect(screen, WHITE, player.rect)
         pygame.draw.rect(screen, BLUE, keeper.rect)
         pygame.draw.ellipse(screen, RED, ball.rect)
 
-        # 方向表示
         direction_text = {
             -1: "Direction: LEFT",
             0: "Direction: CENTER",
             1: "Direction: RIGHT"
         }[shoot_direction]
         draw_text(screen, direction_text, font, WHITE, 10, HEIGHT - 50)
-
-        # スコア表示
         draw_text(screen, f"Score: {score}", font, WHITE, 10, 10)
 
         if goal_scored:
