@@ -81,6 +81,7 @@ def main():
     goal_scored = False
     no_goal = False
     message_timer = 0
+    score = 0  # ← 得点カウント
 
     running = True
     while running:
@@ -109,6 +110,7 @@ def main():
 
             if ball.rect.colliderect(goal.rect):
                 goal_scored = True
+                score += 1  # ← ゴール時にスコア加算
                 ball.in_motion = False
                 message_timer = current_time
 
@@ -120,12 +122,10 @@ def main():
             elif ball.rect.top <= 0:
                 ball.reset_position(player)
 
-            # キーパーの瞬間移動処理
             keeper.update(current_time)
         else:
             keeper.reset()
 
-        # メッセージ表示後のリセット
         if goal_scored or no_goal:
             if current_time - message_timer > 2000:
                 goal_scored = False
@@ -146,8 +146,10 @@ def main():
             0: "Direction: CENTER",
             1: "Direction: RIGHT"
         }[shoot_direction]
-
         draw_text(screen, direction_text, font, WHITE, 10, HEIGHT - 50)
+
+        # スコア表示
+        draw_text(screen, f"Score: {score}", font, WHITE, 10, 10)
 
         if goal_scored:
             draw_text(screen, "GOAL!", font, WHITE, WIDTH // 2 - 60, HEIGHT // 2)
