@@ -41,30 +41,45 @@ class Goal:
     def __init__(self):
         self.rect = pygame.Rect(WIDTH // 2 - 175, 0, 350, 20)
 
+class KeeperSizeManager:#新しいクラス
+    def __init__(self, base_width=50):
+        self.base_width = base_width
+
+    def get_width(self, score):#スコアが４以上でキーパーのサイズを四倍に
+        return self.base_width * 4 if score >= 4 else self.base_width
+
 class Keeper:
-    def __init__(self, goal):
-        self.width, self.height = 50, 20
+    def __init__(self, goal, size_manager):
+        self.size_manager = size_manager
+        self.height = 20
+        self.width = self.size_manager.get_width(0)
         self.rect = pygame.Rect(0, 0, self.width, self.height)
-        self.positions = [
-            WIDTH // 2 - self.width // 2,
-            goal.rect.left,
-            goal.rect.right - self.width
-        ]
         self.rect.y = goal.rect.bottom
-        self.rect.centerx = self.positions[0]
+        self.rect.centerx = WIDTH // 2
         self.last_move_time = 0
         self.move_interval = 300
         self.kippaa_jyoukyou = "genzai"  # "genzai", "kieta"
         self.kippaa_haisoku_jikan = 0
-        self.ball_stopped_time = None
-        self.has_moved_this_shot = False
+        self.goal = goal
+        
     def update(self, current_time):
         if self.kippaa_jyoukyou == "genzai" and current_time - self.last_move_time > self.move_interval:
-            self.rect.centerx = random.choice(self.positions)
+            positions = [
+                WIDTH // 2,
+                self.goal.rect.left + self.rect.width // 2,
+                self.goal.rect.right - self.rect.width // 2
+            ]
+            self.rect.centerx = random.choice(positions)
             self.last_move_time = current_time
 
     def reset(self):
-        self.rect.centerx = self.positions[0]
+        self.rect.centerx = WIDTH // 2
+
+    def update_size(self, score):
+        current_center = self.rect.centerx
+        self.width = self.size_manager.get_width(score)
+        self.rect.width = self.width
+        self.rect.x = current_center - self.width // 2
         self.kippaa_jyoukyou = "genzai"
 
     def destroy(self, current_time):
@@ -91,7 +106,8 @@ def main():
     player = Player()
     ball = Ball(player)
     goal = Goal()
-    keeper = Keeper(goal)
+    size_manager = KeeperSizeManager()
+    keeper = Keeper(goal, size_manager)
 
     # explosion.gif を読み込む（透過なし想定）
     explosion_img = pygame.image.load("fig/explosion.gif").convert()
@@ -108,6 +124,7 @@ def main():
     running = True
     while running:
         current_time = pygame.time.get_ticks()
+        keeper.update_size(score)  # キーパーのサイズ更新
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -149,7 +166,7 @@ def main():
 
             if ball.rect.colliderect(goal.rect):
                 goal_scored = True
-                score += 1  # ← ゴール時にスコア加算
+                score += 1
                 ball.in_motion = False
                 message_timer = current_time
                 keeper.ball_stopped_time = current_time  #停止時間を記録
