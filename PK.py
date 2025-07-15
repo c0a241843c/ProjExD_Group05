@@ -19,23 +19,39 @@ class Player:
 
 class Ball:
     def __init__(self, player):
-        self.rect = pygame.Rect(player.rect.centerx - 10, player.rect.top - 20, 20, 20)
-        self.speed_x = 0
-        self.speed_y = 0
+        self.rect = pygame.Rect(player.rect.centerx - 10, player.rect.top - 20, 20, 20) 
+        self.pos_x = float(self.rect.x) 
+        self.pos_y = float(self.rect.y)
+        self.speed_x = 0.0
+        self.speed_y = 0.0
+        self.curve = 0 # カーブの強さ（-3から3まで）
         self.in_motion = False
         self.kantuu_dan = False
+        self.curve_accel = 0.0  # 横方向加速度
 
     def reset_position(self, player):
-        self.rect.x = player.rect.centerx - 10
-        self.rect.y = player.rect.top - 20
+        self.pos_x = float(player.rect.centerx - 10)
+        self.pos_y = float(player.rect.top - 20)
+        self.rect.x = int(self.pos_x)
+        self.rect.y = int(self.pos_y)
         self.in_motion = False
-        self.speed_x = 0
-        self.speed_y = 0
+        self.speed_x = 0.0
+        self.speed_y = 0.0
+        self.curve_accel = 0.0 # 横方向加速度のリセット
+        self.curve = 0 # カーブの強さのリセット
         self.kantuu_dan = False
 
     def update(self):
-        self.rect.x += self.speed_x
-        self.rect.y += self.speed_y
+        curve_strength=0.08 # カーブの強さを調整する係数
+        self.curve_accel = self.curve * curve_strength  # カーブによる横方向の加速度
+
+        self.speed_x += self.curve_accel # カーブによる横方向の加速度を速度に加算
+
+        self.pos_x += self.speed_x  # 横方向の位置を更新
+        self.pos_y += self.speed_y  # 縦方向の位置を更新
+
+        self.rect.x = int(self.pos_x)  #x座標を更新
+        self.rect.y = int(self.pos_y)  #y座標を更新
 
 class Goal:
     def __init__(self):
@@ -156,7 +172,13 @@ def main():
                             ball.kantuu_dan = False
                         q_pressed = False
 
-        # ボール更新処理
+        # ボール更新処理                elif event.key == pygame.K_z: # カーブの強さを調整
+                    ball.curve = max(ball.curve -1,-3) # 左カーブ
+                elif event.key == pygame.K_x: # カーブの強さを調整
+                    ball.curve =min(ball.curve+1,3)# 右カーブ
+                elif event.key == pygame.K_c: # カーブなし
+                    ball.curve = 0   # カーブなし（リセット）
+
         if ball.in_motion:
             ball.update()
 
@@ -180,6 +202,11 @@ def main():
                         ball.in_motion = False
                         message_timer = current_time
                 keeper.ball_stopped_time = current_time  #停止時間を記録
+
+            elif ball.rect.bottom < 0 or ball.rect.right < 0 or ball.rect.left > WIDTH:
+                no_goal = True
+                ball.in_motion = False
+                message_timer = current_time
 
             elif ball.rect.top <= 0:
                 ball.reset_position(player)
@@ -232,6 +259,41 @@ def main():
         }[shoot_direction]
 
         draw_text(screen, f"Score: {score}", font, WHITE, 20, 20, center=False)
+        # カーブの強さ表示
+        curve_text = {
+            -3: "Curve: LEFT 3", 
+            -2: "Curve: LEFT 2",
+            -1: "Curve: LEFT 1",
+            0: "Curve: NONE",
+            1: "Curve: RIGHT 1",
+            2: "Curve: RIGHT 2",
+            3: "Curve: RIGHT 3",
+        }.get(ball.curve,"Curve:UNKNOWN")
+
+        # カーブゲージ表示（バー）
+        gauge_width = 200
+        gauge_height = 20
+        gauge_x = 10
+        gauge_y = HEIGHT - 130
+
+        # ゲージの背景（枠）
+        pygame.draw.rect(screen, WHITE, (gauge_x, gauge_y, gauge_width, gauge_height), 2)
+
+        # ゲージ中央線（カーブ0の位置）
+        pygame.draw.line(screen, WHITE, (gauge_x + gauge_width // 2, gauge_y),
+                        (gauge_x + gauge_width // 2, gauge_y + gauge_height), 1)
+
+        # 実際のゲージバー
+        bar_center = gauge_x + gauge_width // 2
+        bar_length = (ball.curve / 3) * (gauge_width // 2)
+
+        # カーブの強さに応じてバーの長さを調整
+        if bar_length > 0: 
+            pygame.draw.rect(screen, RED, (bar_center, gauge_y, bar_length, gauge_height))  # 右カーブ赤
+        elif bar_length < 0: 
+            pygame.draw.rect(screen, BLUE, (bar_center + bar_length, gauge_y, -bar_length, gauge_height))  # 左カーブ青
+
+        draw_text(screen, curve_text, font, WHITE, 10, HEIGHT - 100)  
         draw_text(screen, direction_text, font, WHITE, 20, HEIGHT - 60, center=False)
         # メッセージ
         if goal_scored:
