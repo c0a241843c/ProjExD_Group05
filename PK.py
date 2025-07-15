@@ -56,7 +56,8 @@ class Keeper:
         self.move_interval = 300
         self.kippaa_jyoukyou = "genzai"  # "genzai", "kieta"
         self.kippaa_haisoku_jikan = 0
-
+        self.ball_stopped_time = None
+        self.has_moved_this_shot = False
     def update(self, current_time):
         if self.kippaa_jyoukyou == "genzai" and current_time - self.last_move_time > self.move_interval:
             self.rect.centerx = random.choice(self.positions)
@@ -127,7 +128,10 @@ def main():
                         ball.speed_y = -10
                         ball.speed_x = shoot_direction * 3
                         ball.in_motion = True
-                        keeper.last_move_time = current_time
+                        keeper.has_moved_this_shot = False
+                        #停止タイマーリセット
+                        keeper.ball_stopped_time = None
+
                         if q_pressed and score >= 3:
                             ball.kantuu_dan = True
                             score -= 2
@@ -139,11 +143,16 @@ def main():
         if ball.in_motion:
             ball.update()
 
+            #移動していなければ1回だけランダム移動
+            if not keeper.has_moved_this_shot:
+                keeper.move_once_random()
+
             if ball.rect.colliderect(goal.rect):
                 goal_scored = True
                 score += 1  # ← ゴール時にスコア加算
                 ball.in_motion = False
                 message_timer = current_time
+                keeper.ball_stopped_time = current_time  #停止時間を記録
 
             elif ball.rect.colliderect(keeper.rect):
                 if keeper.kippaa_jyoukyou == "genzai":
@@ -153,14 +162,22 @@ def main():
                         no_goal = True
                         ball.in_motion = False
                         message_timer = current_time
+                keeper.ball_stopped_time = current_time  #停止時間を記録
 
             elif ball.rect.top <= 0:
                 ball.reset_position(player)
+                keeper.ball_stopped_time = current_time  #停止時間を記録
 
             keeper.update(current_time)
         else:
-            if keeper.kippaa_jyoukyou == "genzai":
-                keeper.reset()
+            #ボールが止まっている間は5秒待つ
+            if keeper.ball_stopped_time:
+                if current_time - keeper.ball_stopped_time >= 5000:
+                    keeper.reset()  #5秒経過したら中央へ
+                #5秒未満はそのままの位置に止まる
+            else:
+                if keeper.kippaa_jyoukyou == "genzai":
+                    keeper.reset()
 
         # キーパー復活処理（3秒後）
         if keeper.kippaa_jyoukyou == "kieta":
@@ -171,9 +188,9 @@ def main():
             if current_time - message_timer > 2000:
                 goal_scored = False
                 no_goal = False
-                ball.reset_position(player)
+                ball.x = player.centerx - 10
                 if keeper.kippaa_jyoukyou == "genzai":
-                    keeper.reset()
+                    ball.y = player.top - 20
 
         # 描画
         screen.blit(background_img, (0, 0))
