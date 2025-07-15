@@ -12,6 +12,7 @@ BLACK = (0, 0, 0)
 RED = (255, 0, 0)
 BLUE = (0, 0, 255)
 YELLOW = (255, 255, 0)
+YELLOW = (255, 255, 0)
 
 class Player:
     def __init__(self):
@@ -52,6 +53,62 @@ class Ball:
 
         self.rect.x = int(self.pos_x)  #x座標を更新
         self.rect.y = int(self.pos_y)  #y座標を更新
+
+# --- チャージシュート対応のボールクラス ---
+class ChargedBall(Ball):
+    def __init__(self, player):
+        super().__init__(player)
+        self.charging = False              #  チャージ中かどうか
+        self.charge_start_time = 0         #  チャージ開始時間
+        self.max_charge_time = 1500        #  最大チャージ時間1.5秒
+
+    def start_charge(self, current_time):
+        self.charging = True               #  チャージ開始
+        self.charge_start_time = current_time
+
+    def release_charge(self, current_time, direction):
+        self.charging = False
+        charge_duration = current_time - self.charge_start_time
+        speed_multiplier = 1 + min(charge_duration / self.max_charge_time, 1)  #  最大2倍
+        self.speed_y = -10 * speed_multiplier
+        self.speed_x = direction * 3 * speed_multiplier
+        self.in_motion = True
+
+    def draw_gauge(self, screen):
+        if self.charging:
+            now = pygame.time.get_ticks()
+            charge_ratio = min((now - self.charge_start_time) / self.max_charge_time, 1)
+            gauge_width = int(200 * charge_ratio)
+            pygame.draw.rect(screen, YELLOW, (WIDTH // 2 - 100, HEIGHT - 40, gauge_width, 20))
+            pygame.draw.rect(screen, WHITE, (WIDTH // 2 - 100, HEIGHT - 40, 200, 20), 2)
+
+# --- チャージシュート対応のボールクラス ---
+class ChargedBall(Ball):
+    def __init__(self, player):
+        super().__init__(player)
+        self.charging = False              #  チャージ中かどうか
+        self.charge_start_time = 0         #  チャージ開始時間
+        self.max_charge_time = 1500        #  最大チャージ時間1.5秒
+
+    def start_charge(self, current_time):
+        self.charging = True               #  チャージ開始
+        self.charge_start_time = current_time
+
+    def release_charge(self, current_time, direction):
+        self.charging = False
+        charge_duration = current_time - self.charge_start_time
+        speed_multiplier = 1 + min(charge_duration / self.max_charge_time, 1)  #  最大2倍
+        self.speed_y = -10 * speed_multiplier
+        self.speed_x = direction * 3 * speed_multiplier
+        self.in_motion = True
+
+    def draw_gauge(self, screen):
+        if self.charging:
+            now = pygame.time.get_ticks()
+            charge_ratio = min((now - self.charge_start_time) / self.max_charge_time, 1)
+            gauge_width = int(200 * charge_ratio)
+            pygame.draw.rect(screen, YELLOW, (WIDTH // 2 - 100, HEIGHT - 40, gauge_width, 20))
+            pygame.draw.rect(screen, WHITE, (WIDTH // 2 - 100, HEIGHT - 40, 200, 20), 2)
 
 class Goal:
     def __init__(self):
@@ -120,7 +177,7 @@ def main():
     font = pygame.font.SysFont(None, 48)
 
     player = Player()
-    ball = Ball(player)
+    ball = ChargedBall(player)  # 通常のBallからChargedBallに変更
     goal = Goal()
     size_manager = KeeperSizeManager()
     keeper = Keeper(goal, size_manager)
@@ -161,6 +218,14 @@ def main():
                         ball.speed_y = -10
                         ball.speed_x = shoot_direction * 3
                         ball.in_motion = True
+                        keeper.last_move_time = current_time
+                elif event.key == pygame.K_s:
+                    if not ball.in_motion and not goal_scored and not no_goal:
+                        ball.start_charge(current_time)  #  チャージ開始
+
+                elif event.type == pygame.KEYUP:
+                    if event.key == pygame.K_s and ball.charging:
+                        ball.release_charge(current_time, shoot_direction)  #  チャージシュート発射
                         keeper.has_moved_this_shot = False
                         #停止タイマーリセット
                         keeper.ball_stopped_time = None
@@ -236,7 +301,9 @@ def main():
                 if keeper.kippaa_jyoukyou == "genzai":
                     ball.y = player.top - 20
 
-        # 描画
+        # --- 描画 ---
+        screen.fill(GREEN)
+        ball.draw_gauge(screen)  #  チャージゲージ描画
         screen.blit(background_img, (0, 0))
         pygame.draw.rect(screen, BLACK, goal.rect)
         pygame.draw.rect(screen, WHITE, player.rect)
@@ -258,44 +325,8 @@ def main():
             1: "Direction: RIGHT"
         }[shoot_direction]
 
-        draw_text(screen, f"Score: {score}", font, WHITE, 20, 20, center=False)
-        # カーブの強さ表示
-        curve_text = {
-            -3: "Curve: LEFT 3", 
-            -2: "Curve: LEFT 2",
-            -1: "Curve: LEFT 1",
-            0: "Curve: NONE",
-            1: "Curve: RIGHT 1",
-            2: "Curve: RIGHT 2",
-            3: "Curve: RIGHT 3",
-        }.get(ball.curve,"Curve:UNKNOWN")
+        draw_text(screen, direction_text, font, WHITE, 10, HEIGHT - 50)
 
-        # カーブゲージ表示（バー）
-        gauge_width = 200
-        gauge_height = 20
-        gauge_x = 10
-        gauge_y = HEIGHT - 130
-
-        # ゲージの背景（枠）
-        pygame.draw.rect(screen, WHITE, (gauge_x, gauge_y, gauge_width, gauge_height), 2)
-
-        # ゲージ中央線（カーブ0の位置）
-        pygame.draw.line(screen, WHITE, (gauge_x + gauge_width // 2, gauge_y),
-                        (gauge_x + gauge_width // 2, gauge_y + gauge_height), 1)
-
-        # 実際のゲージバー
-        bar_center = gauge_x + gauge_width // 2
-        bar_length = (ball.curve / 3) * (gauge_width // 2)
-
-        # カーブの強さに応じてバーの長さを調整
-        if bar_length > 0: 
-            pygame.draw.rect(screen, RED, (bar_center, gauge_y, bar_length, gauge_height))  # 右カーブ赤
-        elif bar_length < 0: 
-            pygame.draw.rect(screen, BLUE, (bar_center + bar_length, gauge_y, -bar_length, gauge_height))  # 左カーブ青
-
-        draw_text(screen, curve_text, font, WHITE, 10, HEIGHT - 100)  
-        draw_text(screen, direction_text, font, WHITE, 20, HEIGHT - 60, center=False)
-        # メッセージ
         if goal_scored:
             draw_text(screen, "GOAL!", font, WHITE, WIDTH // 2 , HEIGHT // 2)
         elif no_goal:
