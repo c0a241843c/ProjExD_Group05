@@ -133,7 +133,7 @@ def draw_text(surface, text, font, color, x, y, center=True, align_right=False):
         rect = img.get_rect(topleft=(x, y))
     surface.blit(img, rect)
 
-# メイン関数
+# メイン
 def main():
     os.chdir(os.path.dirname(os.path.abspath(__file__)))
     pygame.init()
