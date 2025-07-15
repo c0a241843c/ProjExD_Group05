@@ -11,6 +11,7 @@ GREEN = (0, 200, 0)
 BLACK = (0, 0, 0)
 RED = (255, 0, 0)
 BLUE = (0, 0, 255)
+YELLOW = (255, 255, 0)
 
 class Player:
     def __init__(self):
@@ -22,6 +23,7 @@ class Ball:
         self.speed_x = 0
         self.speed_y = 0
         self.in_motion = False
+        self.kantuu_dan = False
 
     def reset_position(self, player):
         self.rect.x = player.rect.centerx - 10
@@ -29,6 +31,7 @@ class Ball:
         self.in_motion = False
         self.speed_x = 0
         self.speed_y = 0
+        self.kantuu_dan = False
 
     def update(self):
         self.rect.x += self.speed_x
@@ -49,21 +52,33 @@ class Keeper:
         ]
         self.rect.y = goal.rect.bottom
         self.rect.centerx = self.positions[0]
-        #ボール停止時間、シュートごとの移動制御
+        self.last_move_time = 0
+        self.move_interval = 300
+        self.kippaa_jyoukyou = "genzai"  # "genzai", "kieta"
+        self.kippaa_haisoku_jikan = 0
         self.ball_stopped_time = None
         self.has_moved_this_shot = False
-
     def update(self, current_time):
-        if current_time - self.last_move_time > self.move_interval:
+        if self.kippaa_jyoukyou == "genzai" and current_time - self.last_move_time > self.move_interval:
             self.rect.centerx = random.choice(self.positions)
             self.last_move_time = current_time
 
     def reset(self):
         self.rect.centerx = self.positions[0]
+        self.kippaa_jyoukyou = "genzai"
 
-def draw_text(surface, text, font, color, x, y):
-    text_surf = font.render(text, True, color)
-    surface.blit(text_surf, (x, y))
+    def destroy(self, current_time):
+        """キーパーを破壊する関数"""
+        self.kippaa_jyoukyou = "kieta"
+        self.kippaa_haisoku_jikan = current_time
+
+def draw_text(surface, text, font, color, x, y, center=True, bg_color=None):
+    text_surf = font.render(text, True, color, bg_color)
+    if center:
+        text_rect = text_surf.get_rect(center=(x, y))
+    else:
+        text_rect = text_surf.get_rect(topleft=(x, y))
+    surface.blit(text_surf, text_rect)
 
 def main():
     os.chdir(os.path.dirname(os.path.abspath(__file__)))
@@ -78,11 +93,17 @@ def main():
     goal = Goal()
     keeper = Keeper(goal)
 
+    # explosion.gif を読み込む（透過なし想定）
+    explosion_img = pygame.image.load("fig/explosion.gif").convert()
+    background_img = pygame.image.load("fig/fild.png").convert()
+    background_img = pygame.transform.scale(background_img, (WIDTH, HEIGHT))
+
     shoot_direction = 0
     goal_scored = False
     no_goal = False
     message_timer = 0
-    score = 0  # ← 得点カウント
+    score = 0
+    q_pressed = False
 
     running = True
     while running:
@@ -99,6 +120,9 @@ def main():
                     shoot_direction = 1
                 elif event.key == pygame.K_UP:
                     shoot_direction = 0
+                elif event.key == pygame.K_q:
+                    if not ball.in_motion and score >= 1:
+                        q_pressed = True
                 elif event.key == pygame.K_SPACE:
                     if not ball.in_motion and not goal_scored and not no_goal:
                         ball.speed_y = -10
@@ -108,7 +132,14 @@ def main():
                         #停止タイマーリセット
                         keeper.ball_stopped_time = None
 
+                        if q_pressed and score >= 3:
+                            ball.kantuu_dan = True
+                            score -= 2
+                        else:
+                            ball.kantuu_dan = False
+                        q_pressed = False
 
+        # ボール更新処理
         if ball.in_motion:
             ball.update()
 
@@ -124,9 +155,13 @@ def main():
                 keeper.ball_stopped_time = current_time  #停止時間を記録
 
             elif ball.rect.colliderect(keeper.rect):
-                no_goal = True
-                ball.in_motion = False
-                message_timer = current_time
+                if keeper.kippaa_jyoukyou == "genzai":
+                    if ball.kantuu_dan:
+                        keeper.destroy(current_time)
+                    else:
+                        no_goal = True
+                        ball.in_motion = False
+                        message_timer = current_time
                 keeper.ball_stopped_time = current_time  #停止時間を記録
 
             elif ball.rect.top <= 0:
@@ -141,6 +176,12 @@ def main():
                     keeper.reset()  #5秒経過したら中央へ
                 #5秒未満はそのままの位置に止まる
             else:
+                if keeper.kippaa_jyoukyou == "genzai":
+                keeper.reset()
+
+        # キーパー復活処理（3秒後）
+        if keeper.kippaa_jyoukyou == "kieta":
+            if current_time - keeper.kippaa_haisoku_jikan > 5000:
                 keeper.reset()
 
         if goal_scored or no_goal:
@@ -148,30 +189,40 @@ def main():
                 goal_scored = False
                 no_goal = False
                 ball.x = player.centerx - 10
-                ball.y = player.top - 20
+                if keeper.kippaa_jyoukyou == "genzai":
+                    ball.y = player.top - 20
 
-        # 描画処理
-        screen.fill(GREEN)
+        # 描画
+        screen.blit(background_img, (0, 0))
         pygame.draw.rect(screen, BLACK, goal.rect)
         pygame.draw.rect(screen, WHITE, player.rect)
-        pygame.draw.rect(screen, BLUE, keeper.rect)
-        pygame.draw.ellipse(screen, RED, ball.rect)
 
-        # 方向表示
+        # キーパー描画
+        if keeper.kippaa_jyoukyou == "genzai":
+            pygame.draw.rect(screen, BLUE, keeper.rect)
+        elif keeper.kippaa_jyoukyou == "kieta":
+            screen.blit(explosion_img, keeper.rect)
+
+        # ボール描画
+        ball_color = YELLOW if ball.kantuu_dan else RED
+        pygame.draw.ellipse(screen, ball_color, ball.rect)
+
+        # UI描画
         direction_text = {
             -1: "Direction: LEFT",
             0: "Direction: CENTER",
             1: "Direction: RIGHT"
         }[shoot_direction]
-        draw_text(screen, direction_text, font, WHITE, 10, HEIGHT - 50)
 
-        # スコア表示
-        draw_text(screen, f"Score: {score}", font, WHITE, 10, 10)
-
+        draw_text(screen, f"Score: {score}", font, WHITE, 20, 20, center=False)
+        draw_text(screen, direction_text, font, WHITE, 20, HEIGHT - 60, center=False)
+        # メッセージ
         if goal_scored:
-            draw_text(screen, "GOAL!", font, WHITE, WIDTH // 2 - 60, HEIGHT // 2)
+            draw_text(screen, "GOAL!", font, WHITE, WIDTH // 2 , HEIGHT // 2)
         elif no_goal:
-            draw_text(screen, "NO GOAL", font, WHITE, WIDTH // 2 - 80, HEIGHT // 2)
+            draw_text(screen, "NO GOAL", font, WHITE, WIDTH // 2 , HEIGHT // 2)
+        elif keeper.kippaa_jyoukyou == "kieta":
+            draw_text(screen, "!-------------KEEPER DESTROY------------!", font, YELLOW, WIDTH // 2, HEIGHT // 2)
 
         pygame.display.flip()
         clock.tick(60)
