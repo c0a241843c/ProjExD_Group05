@@ -67,6 +67,7 @@ class Keeper:
         self.kippaa_jyoukyou = "genzai"
 
     def destroy(self, current_time):
+        """キーパーを破壊する関数"""
         self.kippaa_jyoukyou = "kieta"
         self.kippaa_haisoku_jikan = current_time
 
@@ -204,7 +205,7 @@ def main():
         elif no_goal:
             draw_text(screen, "NO GOAL", font, WHITE, WIDTH // 2 , HEIGHT // 2)
         elif keeper.kippaa_jyoukyou == "kieta":
-            draw_text(screen, "!-------------KEEPER HAKAI------------!", font, YELLOW, WIDTH // 2, HEIGHT // 2)
+            draw_text(screen, "!-------------KEEPER DESTROY------------!", font, YELLOW, WIDTH // 2, HEIGHT // 2)
 
         pygame.display.flip()
         clock.tick(60)
