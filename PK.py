@@ -177,7 +177,7 @@ def main():
                 #5秒未満はそのままの位置に止まる
             else:
                 if keeper.kippaa_jyoukyou == "genzai":
-                keeper.reset()
+                    keeper.reset()
 
         # キーパー復活処理（3秒後）
         if keeper.kippaa_jyoukyou == "kieta":
